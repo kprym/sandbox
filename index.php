@@ -3,136 +3,320 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Interactive Beach</title>
+  <title>Painterly Interactive Beach</title>
   <style>
-    html, body { margin: 0; height: 100%; background: linear-gradient(#87ceeb 0%, #bfeaff 40%, #f6e6b3 40%, #ecd18a 100%); overflow: hidden; font-family: Arial, sans-serif; }
-    #info { position: fixed; top: 10px; left: 10px; background: rgba(255,255,255,0.8); padding: 8px 10px; border-radius: 8px; font-size: 14px; }
-    canvas { display: block; width: 100vw; height: 100vh; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #7ec7ee;
+      font-family: "Trebuchet MS", Arial, sans-serif;
+    }
+
+    #info {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.8);
+      color: #17465d;
+      font-size: 14px;
+      backdrop-filter: blur(2px);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.1);
+      z-index: 2;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
   </style>
 </head>
 <body>
-  <div id="info">Click anywhere to drop fun beach items. Move mouse to attract dolphins 🐬</div>
+  <div id="info">Click the beach to place objects • Move mouse over ocean to guide dolphins</div>
   <canvas id="beach"></canvas>
+
   <script>
     const canvas = document.getElementById('beach');
     const ctx = canvas.getContext('2d');
-    let w, h;
-    const mouse = { x: 0, y: 0 };
-    const items = [];
+
+    let w = 0;
+    let h = 0;
+    let t = 0;
+    const mouse = { x: -999, y: -999 };
+
+    const placedObjects = [];
+    const MAX_OBJECTS = 180;
+
+    const dolphins = Array.from({ length: 4 }, (_, i) => ({
+      x: 220 + i * 220,
+      y: 150 + Math.random() * 90,
+      vx: (Math.random() > 0.5 ? 1 : -1) * (1 + Math.random() * 0.8),
+      phase: Math.random() * Math.PI * 2,
+      scale: 0.8 + Math.random() * 0.35,
+    }));
 
     function resize() {
       w = canvas.width = window.innerWidth;
       h = canvas.height = window.innerHeight;
+
+      dolphins.forEach((d, i) => {
+        if (d.x < -120 || d.x > w + 120) d.x = w * (0.2 + i * 0.18);
+        d.y = Math.max(h * 0.16, Math.min(h * 0.48, d.y));
+      });
     }
+
     window.addEventListener('resize', resize);
     resize();
 
-    const emojiPool = ['🪣', '🏖️', '⭐', '🐚', '🦀', '🦞', '🏐'];
+    canvas.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
 
-    function addItem(x, y) {
-      items.push({
-        x, y,
-        emoji: emojiPool[(Math.random() * emojiPool.length) | 0],
-        size: 22 + Math.random() * 18,
-        bob: Math.random() * Math.PI * 2,
+    canvas.addEventListener('mouseleave', () => {
+      mouse.x = -999;
+      mouse.y = -999;
+    });
+
+    canvas.addEventListener('click', (e) => {
+      const types = ['bucket', 'shell', 'starfish', 'pebble', 'pail'];
+      placedObjects.push({
+        x: e.clientX,
+        y: Math.max(e.clientY, h * 0.58),
+        type: types[Math.floor(Math.random() * types.length)],
+        rot: Math.random() * Math.PI * 2,
+        size: 0.8 + Math.random() * 0.6,
       });
-    }
 
-    for (let i = 0; i < 20; i++) addItem(Math.random() * w, h * 0.45 + Math.random() * h * 0.5);
+      if (placedObjects.length > MAX_OBJECTS) placedObjects.shift();
+    });
 
-    canvas.addEventListener('click', (e) => addItem(e.clientX, e.clientY));
-    canvas.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
+    function drawBackground() {
+      const sky = ctx.createLinearGradient(0, 0, 0, h * 0.42);
+      sky.addColorStop(0, '#7cc8f2');
+      sky.addColorStop(0.55, '#9fdbfb');
+      sky.addColorStop(1, '#d8efff');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, w, h * 0.42);
 
-    const dolphins = Array.from({ length: 5 }, (_, i) => ({
-      x: w * (0.15 + i * 0.17),
-      y: h * (0.2 + Math.random() * 0.13),
-      vx: (Math.random() * 1.2 + 0.8) * (Math.random() > 0.5 ? 1 : -1),
-      t: Math.random() * Math.PI * 2,
-      s: 30 + Math.random() * 12,
-    }));
+      const seaY = h * 0.39;
+      const sea = ctx.createLinearGradient(0, seaY, 0, h * 0.68);
+      sea.addColorStop(0, '#42a9cd');
+      sea.addColorStop(0.4, '#247ea8');
+      sea.addColorStop(1, '#185f89');
+      ctx.fillStyle = sea;
+      ctx.fillRect(0, seaY, w, h * 0.36);
 
-    function drawSkyAndSea() {
-      // sea
-      const seaY = h * 0.4;
-      const grad = ctx.createLinearGradient(0, seaY, 0, h);
-      grad.addColorStop(0, '#48b7dd');
-      grad.addColorStop(1, '#0f6c96');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, seaY, w, h - seaY);
-
-      // sand
-      ctx.fillStyle = '#e7cb84';
+      const sand = ctx.createLinearGradient(0, h * 0.58, 0, h);
+      sand.addColorStop(0, '#ebd598');
+      sand.addColorStop(0.5, '#dfc078');
+      sand.addColorStop(1, '#d2af63');
+      ctx.fillStyle = sand;
       ctx.fillRect(0, h * 0.58, w, h * 0.42);
 
-      // horizon haze
-      ctx.fillStyle = 'rgba(255,255,255,0.2)';
-      ctx.fillRect(0, seaY - 8, w, 20);
-    }
-
-    function drawWaves(time) {
-      for (let j = 0; j < 6; j++) {
-        const baseY = h * (0.42 + j * 0.035);
-        ctx.beginPath();
-        for (let x = 0; x <= w; x += 12) {
-          const y = baseY + Math.sin(x * 0.012 + time * 0.002 + j) * (8 + j * 1.5);
-          if (x === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.strokeStyle = `rgba(255,255,255,${0.45 - j * 0.06})`;
-        ctx.lineWidth = 2;
-        ctx.stroke();
+      for (let i = 0; i < 120; i++) {
+        const px = (i * 97) % w;
+        const py = h * 0.58 + ((i * 53) % (h * 0.4));
+        ctx.fillStyle = `rgba(140, 107, 54, ${0.04 + (i % 7) * 0.01})`;
+        ctx.fillRect(px, py, 2, 2);
       }
     }
 
-    function drawItems(time) {
-      items.forEach((it) => {
-        const wetLine = h * 0.61;
-        const y = it.y + Math.sin(time * 0.003 + it.bob) * (it.y < wetLine ? 3 : 0.8);
-        ctx.font = `${it.size}px serif`;
-        ctx.globalAlpha = it.y < wetLine ? 0.9 : 1;
-        ctx.fillText(it.emoji, it.x, y);
-        ctx.globalAlpha = 1;
-      });
+    function drawWaves() {
+      for (let band = 0; band < 7; band++) {
+        const yBase = h * (0.43 + band * 0.03);
+        ctx.beginPath();
+        for (let x = 0; x <= w; x += 10) {
+          const y = yBase + Math.sin(x * 0.012 + t * 0.002 + band * 1.4) * (6 + band);
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = `rgba(235, 250, 255, ${0.48 - band * 0.055})`;
+        ctx.lineWidth = 1.5 + band * 0.25;
+        ctx.stroke();
+      }
 
-      // Always-visible stars and buckets explicitly requested
-      ctx.font = '30px serif'; ctx.fillText('⭐', w * 0.12, h * 0.72);
-      ctx.font = '34px serif'; ctx.fillText('🪣', w * 0.84, h * 0.78);
-      ctx.font = '30px serif'; ctx.fillText('🪣', w * 0.67, h * 0.70);
-      ctx.font = '32px serif'; ctx.fillText('🌟', w * 0.5, h * 0.76);
+      ctx.fillStyle = 'rgba(255,255,255,0.24)';
+      ctx.fillRect(0, h * 0.565, w, 8);
     }
 
-    function drawDolphins(time) {
+    function drawStarfish(x, y, size, rot) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rot);
+      ctx.fillStyle = '#db7b52';
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const a = i * (Math.PI * 2 / 5);
+        ctx.lineTo(Math.cos(a) * size, Math.sin(a) * size);
+        const inner = a + Math.PI / 5;
+        ctx.lineTo(Math.cos(inner) * size * 0.45, Math.sin(inner) * size * 0.45);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawBucket(x, y, s) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(s, s);
+      ctx.fillStyle = '#4aa3d8';
+      ctx.beginPath();
+      ctx.moveTo(-14, 0);
+      ctx.lineTo(14, 0);
+      ctx.lineTo(10, 24);
+      ctx.lineTo(-10, 24);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#2f6f96';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, -1, 13, Math.PI, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawShell(x, y, s, rot) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rot);
+      ctx.scale(s, s);
+      const g = ctx.createRadialGradient(0, 0, 1, 0, 0, 18);
+      g.addColorStop(0, '#f9e6d0');
+      g.addColorStop(1, '#cda37f');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 18, 11, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(130,90,65,0.35)';
+      for (let i = -12; i <= 12; i += 6) {
+        ctx.beginPath();
+        ctx.moveTo(i, -7);
+        ctx.lineTo(i, 7);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawPail(x, y, s) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(s, s);
+      ctx.fillStyle = '#e24f4f';
+      ctx.fillRect(-10, 3, 20, 16);
+      ctx.strokeStyle = '#9c2f2f';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 2, 10, Math.PI, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPebble(x, y, s) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(s, s);
+      ctx.fillStyle = '#8c8a87';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 8, 5, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawPlacedObjects() {
+      placedObjects.sort((a, b) => a.y - b.y);
+      for (const item of placedObjects) {
+        if (item.type === 'bucket') drawBucket(item.x, item.y, item.size);
+        if (item.type === 'shell') drawShell(item.x, item.y, item.size, item.rot);
+        if (item.type === 'starfish') drawStarfish(item.x, item.y, 14 * item.size, item.rot);
+        if (item.type === 'pebble') drawPebble(item.x, item.y, item.size);
+        if (item.type === 'pail') drawPail(item.x, item.y, item.size);
+      }
+
+      drawBucket(w * 0.16, h * 0.76, 1.3);
+      drawBucket(w * 0.82, h * 0.8, 1.1);
+      drawStarfish(w * 0.54, h * 0.74, 16, 0.4);
+      drawShell(w * 0.67, h * 0.79, 1.2, -0.5);
+      drawPebble(w * 0.47, h * 0.84, 1.4);
+      drawPail(w * 0.32, h * 0.82, 1.15);
+    }
+
+    function drawDolphin(x, y, scale, facingRight) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(facingRight ? scale : -scale, scale);
+
+      const bodyGrad = ctx.createLinearGradient(-30, -10, 30, 20);
+      bodyGrad.addColorStop(0, '#b2c5d0');
+      bodyGrad.addColorStop(1, '#6f8fa1');
+      ctx.fillStyle = bodyGrad;
+
+      ctx.beginPath();
+      ctx.moveTo(-35, 0);
+      ctx.quadraticCurveTo(-5, -18, 26, -5);
+      ctx.quadraticCurveTo(36, 0, 24, 10);
+      ctx.quadraticCurveTo(0, 20, -30, 10);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(-30, 2);
+      ctx.lineTo(-45, -8);
+      ctx.lineTo(-42, 7);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(-4, -5);
+      ctx.lineTo(8, -20);
+      ctx.lineTo(10, -4);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#1f3442';
+      ctx.beginPath();
+      ctx.arc(19, -2, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function updateAndDrawDolphins() {
       dolphins.forEach((d) => {
         const dx = mouse.x - d.x;
         const dy = mouse.y - d.y;
         const dist = Math.hypot(dx, dy);
-        if (dist < 220) {
-          d.vx += Math.sign(dx) * 0.02;
-          d.y += Math.sign(dy) * 0.35;
+
+        if (dist < 260 && mouse.y < h * 0.58) {
+          d.vx += Math.sign(dx) * 0.015;
+          d.y += Math.sign(dy) * 0.2;
         }
 
+        d.vx = Math.max(-2.2, Math.min(2.2, d.vx));
         d.x += d.vx;
-        d.t += 0.06;
-        d.y += Math.sin(d.t + time * 0.004) * 0.8;
+        d.phase += 0.05;
+        d.y += Math.sin(d.phase + t * 0.003) * 0.7;
 
-        if (d.x < -60 || d.x > w + 60) d.vx *= -1;
-        d.y = Math.min(h * 0.34, Math.max(h * 0.12, d.y));
+        if (d.x < -80) d.x = w + 80;
+        if (d.x > w + 80) d.x = -80;
 
-        ctx.save();
-        ctx.translate(d.x, d.y);
-        ctx.scale(d.vx < 0 ? -1 : 1, 1);
-        ctx.font = `${d.s}px serif`;
-        ctx.fillText('🐬', -d.s * 0.5, 0);
-        ctx.restore();
+        d.y = Math.max(h * 0.16, Math.min(h * 0.48, d.y));
+        drawDolphin(d.x, d.y, d.scale, d.vx >= 0);
       });
     }
 
     function animate(time) {
+      t = time;
       ctx.clearRect(0, 0, w, h);
-      drawSkyAndSea();
-      drawWaves(time);
-      drawItems(time);
-      drawDolphins(time);
+      drawBackground();
+      drawWaves();
+      updateAndDrawDolphins();
+      drawPlacedObjects();
       requestAnimationFrame(animate);
     }
 
