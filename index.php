@@ -48,11 +48,12 @@
     const mouse = { x: -999, y: -999 };
 
     const placedObjects = [];
+    const MAX_OBJECTS = 180;
 
     const dolphins = Array.from({ length: 4 }, (_, i) => ({
       x: 220 + i * 220,
       y: 150 + Math.random() * 90,
-      vx: 1 + Math.random() * 0.8,
+      vx: (Math.random() > 0.5 ? 1 : -1) * (1 + Math.random() * 0.8),
       phase: Math.random() * Math.PI * 2,
       scale: 0.8 + Math.random() * 0.35,
     }));
@@ -60,6 +61,11 @@
     function resize() {
       w = canvas.width = window.innerWidth;
       h = canvas.height = window.innerHeight;
+
+      dolphins.forEach((d, i) => {
+        if (d.x < -120 || d.x > w + 120) d.x = w * (0.2 + i * 0.18);
+        d.y = Math.max(h * 0.16, Math.min(h * 0.48, d.y));
+      });
     }
 
     window.addEventListener('resize', resize);
@@ -76,7 +82,7 @@
     });
 
     canvas.addEventListener('click', (e) => {
-      const types = ['bucket', 'shell', 'starfish', 'pebble'];
+      const types = ['bucket', 'shell', 'starfish', 'pebble', 'pail'];
       placedObjects.push({
         x: e.clientX,
         y: Math.max(e.clientY, h * 0.58),
@@ -84,6 +90,8 @@
         rot: Math.random() * Math.PI * 2,
         size: 0.8 + Math.random() * 0.6,
       });
+
+      if (placedObjects.length > MAX_OBJECTS) placedObjects.shift();
     });
 
     function drawBackground() {
@@ -195,6 +203,20 @@
       ctx.restore();
     }
 
+    function drawPail(x, y, s) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(s, s);
+      ctx.fillStyle = '#e24f4f';
+      ctx.fillRect(-10, 3, 20, 16);
+      ctx.strokeStyle = '#9c2f2f';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 2, 10, Math.PI, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     function drawPebble(x, y, s) {
       ctx.save();
       ctx.translate(x, y);
@@ -207,11 +229,13 @@
     }
 
     function drawPlacedObjects() {
+      placedObjects.sort((a, b) => a.y - b.y);
       for (const item of placedObjects) {
         if (item.type === 'bucket') drawBucket(item.x, item.y, item.size);
         if (item.type === 'shell') drawShell(item.x, item.y, item.size, item.rot);
         if (item.type === 'starfish') drawStarfish(item.x, item.y, 14 * item.size, item.rot);
         if (item.type === 'pebble') drawPebble(item.x, item.y, item.size);
+        if (item.type === 'pail') drawPail(item.x, item.y, item.size);
       }
 
       drawBucket(w * 0.16, h * 0.76, 1.3);
@@ -219,6 +243,7 @@
       drawStarfish(w * 0.54, h * 0.74, 16, 0.4);
       drawShell(w * 0.67, h * 0.79, 1.2, -0.5);
       drawPebble(w * 0.47, h * 0.84, 1.4);
+      drawPail(w * 0.32, h * 0.82, 1.15);
     }
 
     function drawDolphin(x, y, scale, facingRight) {
